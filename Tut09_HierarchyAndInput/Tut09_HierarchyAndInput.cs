@@ -22,7 +22,12 @@ namespace FuseeApp
         private SceneContainer _scene;
         private SceneRendererForward _sceneRenderer;
         private Transform _baseTransform;
-
+        private Transform _bodyTransform;
+        private Transform _upperArmTransform;
+        private Transform _lowerArmTransform;
+        private Transform _cameraTransform;
+        private float _cameraAngle = 0;
+        private float _mouseSensitivity = .01f;
 
         SceneContainer CreateScene()
         {
@@ -34,6 +39,28 @@ namespace FuseeApp
                 Translation = new float3(0, 0, 0)
             };
 
+            _bodyTransform = new Transform
+            {
+                Translation = new float3(0, 6, 0)
+            };
+
+            _upperArmTransform = new Transform
+            {
+                Translation = new float3(2, 4, 0),
+                Rotation = new float3(M.PiOver6, 0, 0)
+            };
+
+            _lowerArmTransform = new Transform
+            {
+                Translation = new float3(-2, 8, 0),
+                Rotation = new float3(M.PiOver6, 0, 0)
+            };
+
+            _cameraTransform = new Transform
+            {
+                Rotation = new float3(0, 0, 0)
+            };
+
             // Setup the scene graph
             return new SceneContainer
             {
@@ -41,23 +68,34 @@ namespace FuseeApp
                 {
                     new SceneNode
                     {
-                        Name = "Camera",
+                        Name = "Camera pivot point",
                         Components =
                         {
-                            new Transform
+                            _cameraTransform
+                        },
+                        Children =
+                        {
+                            new SceneNode
                             {
-                                Translation = new float3(0, 10, -50),
-                            },
-                            new Camera(ProjectionMethod.Perspective, 5, 100, M.PiOver4)
-                            {
-                                BackgroundColor =  (float4) ColorUint.Greenery
+                                Name = "Camera",
+                                Components =
+                                {
+                                    new Transform
+                                    {
+                                        Translation = new float3(0, 10, -50),
+                                    },
+                                    new Camera(ProjectionMethod.Perspective, 5, 100, M.PiOver4)
+                                    {
+                                        BackgroundColor =  (float4) ColorUint.Greenery
+                                    }
+                                },
                             }
-                        }
+                         }
                     },
 
                     new SceneNode
                     {
-                        Name = "Robot",
+                        Name = "Base",
                         Components =
                         {
                             // TRANSFORM COMPONENT
@@ -68,12 +106,87 @@ namespace FuseeApp
 
                             // MESH COMPONENT
                             new CuboidMesh(new float3(10, 2, 10))
+                        },
+                        Children =
+                        {
+                            new SceneNode
+                            {
+                                Name = "Body (red)",
+                                Components =
+                                {
+                                    _bodyTransform,
+                                    MakeEffect.FromDiffuse((float4)ColorUint.IndianRed),
+                                    new CuboidMesh(new float3(2, 10, 2))
+                                },
+                                Children =
+                                {
+                                    new SceneNode
+                                    {
+                                        Name = "Upper arm pivot point",
+                                        Components =
+                                        {
+                                            _upperArmTransform
+                                        },
+                                        Children =
+                                        {
+                                            new SceneNode
+                                            {
+                                                Name = "Upper arm (green)",
+                                                Components =
+                                                {
+                                                    new Transform
+                                                    {
+                                                        Translation = new float3(0, 4, 0)
+                                                    },
+                                                    MakeEffect.FromDiffuse((float4)ColorUint.Green),
+                                                    new CuboidMesh(new float3(2, 10, 2))
+                                                }
+                                            },
+                                            new SceneNode
+                                            {
+                                                Name = "Lower arm pivot point",
+                                                Components =
+                                                {
+                                                    _lowerArmTransform
+                                                },
+                                                Children =
+                                                {
+                                                    new SceneNode
+                                                    {
+                                                        Name = "Lower arm (blue)",
+                                                        Components =
+                                                        {
+                                                            new Transform
+                                                            {
+                                                                Translation = new float3(0, 4, 0)
+                                                            },
+                                                            MakeEffect.FromDiffuse((float4)ColorUint.Blue),
+                                                            new CuboidMesh(new float3(2, 10, 2))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             };
         }
 
+        private void ApplyControls()
+        {
+            // Camera rotation
+            if (Mouse.LeftButton)
+            {
+                _cameraAngle += (Mouse.Velocity.x / Width) * M.TwoPi * Time.DeltaTime;
+                _cameraTransform.Rotation = new float3(_cameraTransform.Rotation.x, _cameraAngle, _cameraTransform.Rotation.z);
+            }
+
+            
+        }
 
         // Init is called on startup. 
         public override void Init()
@@ -92,6 +205,9 @@ namespace FuseeApp
         {
             // Clear the backbuffer
             RC.Clear(ClearFlags.Color | ClearFlags.Depth);
+
+
+            ApplyControls();
 
             // Render the scene on the current render context
             _sceneRenderer.Render(RC);
